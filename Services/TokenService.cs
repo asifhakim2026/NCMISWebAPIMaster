@@ -23,11 +23,13 @@ public class TokenService : ITokenService
         var claims = new List<Claim>
         {
             new(JwtRegisteredClaimNames.Sub, user.UserID.ToString()),
+            // Explicit NameIdentifier so controllers still resolve user id if inbound claim mapping differs.
+            new(ClaimTypes.NameIdentifier, user.UserID.ToString()),
             new("UserID", user.UserID.ToString()),
             new("UserName", user.UserName),
             new(JwtRegisteredClaimNames.UniqueName, user.UserName),
-            new(JwtRegisteredClaimNames.Email, user.Email),
-            new("fullName", user.FullName),
+            new(JwtRegisteredClaimNames.Email, user.Email ?? string.Empty),
+            new("fullName", user.FullName ?? string.Empty),
             new("roleId", user.RoleId.ToString()),
             new("userTypes", user.UserTypes.ToString())
         };

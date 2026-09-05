@@ -11,7 +11,7 @@ namespace NCMISAPI.Controllers;
 /// NOT HouseHold Support — that is api/HouseHoldSupport/categories (SetupHouseHoldCategories).
 /// Unhandled exceptions → ExceptionHandlingMiddleware → ErrorLogHelper.
 /// </summary>
-[Authorize]
+[Authorize(Policy = "LoggedInPolicy")]
 [Route("api/HouseHoldSurvey")]
 [ApiController]
 public class HouseHoldSurveyController : ApiControllerBase

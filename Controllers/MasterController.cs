@@ -9,7 +9,7 @@ namespace NCMISAPI.Controllers;
 /// Master data and utility endpoints (file upload, etc.).
 /// Unhandled exceptions → ExceptionHandlingMiddleware → ErrorLogHelper.
 /// </summary>
-[Authorize]
+[Authorize(Policy = "LoggedInPolicy")]
 [Route("api/[controller]")]
 [ApiController]
 public class MasterController : ControllerBase

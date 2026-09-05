@@ -90,23 +90,56 @@ public class AuthController : ControllerBase
     }
 
     /// <summary>
+    /// Returns claims from the current access token — use this to verify Authorization works.
+    /// </summary>
+    [Authorize(Policy = "LoggedInPolicy")]
+    [HttpGet("me")]
+    [Produces("application/json")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiErrorResponseDto), StatusCodes.Status401Unauthorized)]
+    public IActionResult Me()
+    {
+        var userId =
+            User.FindFirstValue("UserID")
+            ?? User.FindFirstValue(JwtRegisteredClaimNames.Sub)
+            ?? User.FindFirstValue(ClaimTypes.NameIdentifier);
+
+        return Ok(new
+        {
+            success = true,
+            message = "Access token is valid.",
+            userId,
+            userName = User.FindFirstValue("UserName")
+                ?? User.FindFirstValue(JwtRegisteredClaimNames.UniqueName),
+            claims = User.Claims.Select(c => new { c.Type, c.Value }).ToList()
+        });
+    }
+
+    /// <summary>
     /// Returns device/session info for the logged-in user (from RefreshTokens).
     /// </summary>
-    [Authorize]
+    [Authorize(Policy = "LoggedInPolicy")]
     [HttpGet("devices")]
     [Produces("application/json")]
     [ProducesResponseType(typeof(IEnumerable<DeviceSessionDto>), StatusCodes.Status200OK)]
-    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(typeof(ApiErrorResponseDto), StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(typeof(ApiErrorResponseDto), StatusCodes.Status500InternalServerError)]
     public async Task<IActionResult> GetDevices()
     {
-        var userIdClaim = User.FindFirstValue(JwtRegisteredClaimNames.Sub)
+        var userIdClaim = User.FindFirstValue("UserID")
+            ?? User.FindFirstValue(JwtRegisteredClaimNames.Sub)
             ?? User.FindFirstValue(ClaimTypes.NameIdentifier);
 
         if (!int.TryParse(userIdClaim, out var userId))
         {
             _logger.LogWarning("GetDevices failed: missing or invalid user id claim.");
-            return Unauthorized();
+            return Unauthorized(new ApiErrorResponseDto
+            {
+                Success = false,
+                Message = "Unauthorized. Access token is missing a valid user id claim.",
+                TraceId = HttpContext.TraceIdentifier,
+                StatusCode = StatusCodes.Status401Unauthorized
+            });
         }
 
         _logger.LogInformation("GetDevices request for user {UserId}.", userId);

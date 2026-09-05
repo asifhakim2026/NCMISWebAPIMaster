@@ -9,7 +9,7 @@ namespace NCMISAPI.Controllers;
 /// GeneralSetup lookup endpoints (Income / Expense options).
 /// Unhandled exceptions → ExceptionHandlingMiddleware → ErrorLogHelper.
 /// </summary>
-[Authorize]
+[Authorize(Policy = "LoggedInPolicy")]
 [Route("api/[controller]")]
 [ApiController]
 public class GeneralSetupController : ControllerBase

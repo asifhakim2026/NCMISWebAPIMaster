@@ -1,4 +1,7 @@
-﻿using Microsoft.AspNetCore.Authentication.JwtBearer;
+﻿using System.IdentityModel.Tokens.Jwt;
+using System.Reflection;
+using System.Text.Json;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.FileProviders;
@@ -6,13 +9,13 @@ using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using NCMISAPI.Configuration;
 using NCMISAPI.Data;
+using NCMISAPI.DTOs;
 using NCMISAPI.Helpers;
 using NCMISAPI.Logging;
 using NCMISAPI.Middleware;
 using NCMISAPI.Services;
 using NCMISAPI.Swagger;
 using Serilog;
-using System.Reflection;
 
 SerilogConfiguration.CreateBootstrapLogger();
 
@@ -78,6 +81,7 @@ try
             // Development: put real IdentityModel messages in WWW-Authenticate.
             options.IncludeErrorDetails = builder.Environment.IsDevelopment();
             options.RequireHttpsMetadata = false;
+            // Keep JWT claim types as issued (sub, unique_name) — do not map to ClaimTypes.*.
             options.MapInboundClaims = false;
 
             // Prefer classic JwtSecurityTokenHandler path for HS256 + SymmetricSecurityKey.
@@ -97,7 +101,10 @@ try
                 IssuerSigningKey = signingKey,
                 TryAllIssuerSigningKeys = true,
                 // Fallback if token kid is missing/mismatched — always return our HMAC key.
-                IssuerSigningKeyResolver = (_, _, _, _) => [signingKey]
+                IssuerSigningKeyResolver = (_, _, _, _) => [signingKey],
+                ClockSkew = TimeSpan.FromMinutes(2),
+                NameClaimType = JwtRegisteredClaimNames.UniqueName,
+                RoleClaimType = "roleId"
             };
 
             options.Events = new JwtBearerEvents
@@ -110,13 +117,52 @@ try
                         context.Exception.GetType().Name);
                     return Task.CompletedTask;
                 },
-                OnChallenge = context =>
+                // Default challenge returns empty body — clients report that as "no data".
+                OnChallenge = async context =>
                 {
                     Log.Warning(
                         "JWT challenge. Error={Error}; ErrorDescription={ErrorDescription}",
                         context.Error,
                         context.ErrorDescription);
-                    return Task.CompletedTask;
+
+                    context.HandleResponse();
+                    context.Response.StatusCode = StatusCodes.Status401Unauthorized;
+                    context.Response.ContentType = "application/json";
+
+                    var message = string.IsNullOrWhiteSpace(context.ErrorDescription)
+                        ? "Unauthorized. Send header Authorization: Bearer <token> using the login response field \"token\" (not refreshToken)."
+                        : context.ErrorDescription;
+
+                    var body = new ApiErrorResponseDto
+                    {
+                        Success = false,
+                        Message = message,
+                        TraceId = context.HttpContext.TraceIdentifier,
+                        StatusCode = StatusCodes.Status401Unauthorized
+                    };
+
+                    await context.Response.WriteAsync(
+                        JsonSerializer.Serialize(body, new JsonSerializerOptions
+                        {
+                            PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+                        }));
+                },
+                OnForbidden = async context =>
+                {
+                    context.Response.StatusCode = StatusCodes.Status403Forbidden;
+                    context.Response.ContentType = "application/json";
+                    var body = new ApiErrorResponseDto
+                    {
+                        Success = false,
+                        Message = "Forbidden. Authenticated but not allowed for this resource.",
+                        TraceId = context.HttpContext.TraceIdentifier,
+                        StatusCode = StatusCodes.Status403Forbidden
+                    };
+                    await context.Response.WriteAsync(
+                        JsonSerializer.Serialize(body, new JsonSerializerOptions
+                        {
+                            PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+                        }));
                 }
             };
         });
@@ -130,7 +176,11 @@ try
             options.TokenValidationParameters.TryAllIssuerSigningKeys = true;
         });
 
-    builder.Services.AddAuthorization();
+    builder.Services.AddAuthorization(options =>
+    {
+        options.AddPolicy("LoggedInPolicy", policy =>
+            policy.RequireAuthenticatedUser());
+    });
 
     builder.Services.AddEndpointsApiExplorer();
 
@@ -140,7 +190,8 @@ try
         {
             Title = "NCMIS API",
             Version = "v1",
-            Description = "NCMIS mobile and web API. POST /api/auth/login for a JWT, then Authorize with the raw token only (Swagger adds Bearer)."
+            Description =
+                "NCMIS mobile and web API. POST /api/auth/login → copy JSON field \"token\" → Authorize (Swagger) or header Authorization: Bearer {token}. Use https://localhost:7046 (not http) so the token is not dropped on HTTPS redirect."
         });
 
         options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
@@ -150,7 +201,8 @@ try
             Scheme = "bearer",
             BearerFormat = "JWT",
             In = ParameterLocation.Header,
-            Description = "Paste the access token ONLY (no 'Bearer ' prefix). Do not paste the refresh token."
+            Description =
+                "Paste the login response field \"token\" ONLY (the long JWT). Do NOT type the word Bearer — Swagger adds it. Do NOT paste refreshToken."
         });
 
         options.OperationFilter<AuthorizeCheckOperationFilter>();
@@ -187,7 +239,11 @@ try
         options.EnableTryItOutByDefault();
     });
 
-    app.UseHttpsRedirection();
+    // HTTP→HTTPS redirects often strip Authorization on mobile/HTTP clients, which looks like
+    // "APIs return no data with access token". Prefer calling the HTTPS URL directly.
+    // In Development, skip redirect so http://localhost:5226 still accepts Bearer tokens.
+    if (!app.Environment.IsDevelopment())
+        app.UseHttpsRedirection();
 
     var webRootPath = app.Environment.WebRootPath
         ?? Path.Combine(app.Environment.ContentRootPath, "wwwroot");
@@ -240,5 +296,4 @@ finally
 {
     SerilogConfiguration.CloseAndFlush();
 }
-
 

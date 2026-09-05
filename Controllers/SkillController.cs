@@ -9,7 +9,7 @@ namespace NCMISAPI.Controllers;
 /// Life skills master lookup endpoints.
 /// Unhandled exceptions → ExceptionHandlingMiddleware → ErrorLogHelper.
 /// </summary>
-[Authorize]
+[Authorize(Policy = "LoggedInPolicy")]
 [Route("api/[controller]")]
 [ApiController]
 public class SkillController : ControllerBase

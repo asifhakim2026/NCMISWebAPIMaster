@@ -11,7 +11,7 @@ namespace NCMISAPI.Controllers;
 /// Fee remission APIs for mobile / clients.
 /// Unhandled exceptions → ExceptionHandlingMiddleware → ErrorLogHelper.
 /// </summary>
-[Authorize]
+[Authorize(Policy = "LoggedInPolicy")]
 [Route("api/[controller]")]
 [ApiController]
 public class FeeRemissionController : ControllerBase
@@ -54,7 +54,13 @@ public class FeeRemissionController : ControllerBase
         if (userId <= 0)
         {
             _logger.LogWarning("FeeRemissionList called without valid user id claim.");
-            return Unauthorized();
+            return Unauthorized(new ApiErrorResponseDto
+            {
+                Success = false,
+                Message = "Unauthorized. Access token is missing a valid user id claim.",
+                TraceId = HttpContext.TraceIdentifier,
+                StatusCode = StatusCodes.Status401Unauthorized
+            });
         }
 
         var request = new FeeRemissionListRequestDto

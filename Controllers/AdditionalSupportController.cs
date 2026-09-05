@@ -12,7 +12,7 @@ namespace NCMISAPI.Controllers;
 /// family-scoped survey load at api/Person/AddtionalSupportsurveyload.
 /// Unhandled exceptions → ExceptionHandlingMiddleware → ErrorLogHelper.
 /// </summary>
-[Authorize]
+[Authorize(Policy = "LoggedInPolicy")]
 [Route("api/[controller]")]
 [ApiController]
 public class AdditionalSupportController : ApiControllerBase

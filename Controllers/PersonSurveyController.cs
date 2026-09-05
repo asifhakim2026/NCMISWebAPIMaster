@@ -9,7 +9,7 @@ namespace NCMISAPI.Controllers;
 /// PersonSurveyController - HTTP layer; routes preserved under api/Person.
 /// Unhandled exceptions → ExceptionHandlingMiddleware → ErrorLogHelper.
 /// </summary>
-[Authorize]
+[Authorize(Policy = "LoggedInPolicy")]
 [Route("api/Person")]
 [ApiController]
 public class PersonSurveyController : ApiControllerBase
