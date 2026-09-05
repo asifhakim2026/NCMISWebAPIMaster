@@ -1,0 +1,6 @@
+@NCMISAPI_HostAddress = http://localhost:5225
+
+GET {{NCMISAPI_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###

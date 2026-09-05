@@ -1,0 +1,40 @@
+## .NET
+bin/
+obj/
+artifacts/
+bin_verify*/
+_build_verify*/
+*.user
+*.suo
+*.useros
+*.sln.docstates
+.vs/
+*.DotSettings.user
+
+## Build / publish
+[Pp]ublish/
+*.nupkg
+project.lock.json
+
+## Logs & local runtime
+logs/
+!logs/.gitkeep
+*.log
+
+## Secrets / local overrides (do not commit real credentials)
+appsettings.Development.json
+appsettings.*.local.json
+**/secrets.json
+.env
+.env.*
+
+## OS / IDE
+Thumbs.db
+Desktop.ini
+.idea/
+*.swp
+
+## Test / coverage
+TestResults/
+coverage/
+*.coverage
