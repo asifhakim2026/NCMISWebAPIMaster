@@ -21,6 +21,10 @@ logs/
 !logs/.gitkeep
 *.log
 
+## Uploaded media (keep folder placeholders only)
+wwwroot/cdn/**
+!wwwroot/cdn/.gitkeep
+
 ## Secrets / local overrides (do not commit real credentials)
 appsettings.Development.json
 appsettings.*.local.json
