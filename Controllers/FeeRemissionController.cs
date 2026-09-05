@@ -28,7 +28,10 @@ public class FeeRemissionController : ControllerBase
     }
 
     /// <summary>
-    /// Returns a paged fee remission list for the logged-in user's assigned regions.
+    /// Returns fee remission cases assigned to the logged-in user
+    /// (CurrentAssignToUserID, IsCurrentStepActive).
+    /// Optional filters: stepid, schoolid, studentenrollmentnumber, status, casestatus, keywordfilter, page.
+    /// When status is omitted, defaults to pending (null CurrentStatus is treated as pending).
     /// </summary>
     [HttpGet("list")]
     [Produces("application/json")]
@@ -42,11 +45,6 @@ public class FeeRemissionController : ControllerBase
         [FromQuery] string? status,
         [FromQuery] string? casestatus,
         [FromQuery] string? keywordfilter,
-        [FromQuery] DateTime? fromDate,
-        [FromQuery] DateTime? toDate,
-        [FromQuery] bool ignoreFilters = false,
-        [FromQuery] bool IsActionfilter = false,
-        [FromQuery] bool useStageJsonStatus = false,
         [FromQuery] int page = 1,
         CancellationToken cancellationToken = default)
     {
@@ -71,11 +69,6 @@ public class FeeRemissionController : ControllerBase
             Status = status,
             CaseStatus = casestatus,
             KeywordFilter = keywordfilter,
-            FromDate = fromDate,
-            ToDate = toDate,
-            IgnoreFilters = ignoreFilters,
-            IsActionFilter = IsActionfilter,
-            UseStageJsonStatus = useStageJsonStatus,
             Page = page
         };
 

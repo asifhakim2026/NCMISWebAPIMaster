@@ -46,6 +46,13 @@ public class FeeRemissionService : IFeeRemissionService
                 },
                 cancellationToken);
 
+        // Default status to pending when the client does not supply one.
+        // Null CurrentStatus is treated as pending for comparison.
+        var statusFilter = string.IsNullOrWhiteSpace(request.Status)
+            ? "pending"
+            : request.Status.Trim().ToLower();
+
+        // Scoped to this user's assignment and active step; filtered by status.
         var query =
             from fee in _dbContext.FeesRemisssions.AsNoTracking()
             join person in _dbContext.PersonalInfos.AsNoTracking()
@@ -58,15 +65,13 @@ public class FeeRemissionService : IFeeRemissionService
                 on fee.FeeRemissionId equals wt.ApplicationId
             where wt.ModuleName == "FeesRemission"
                   && assignedLocationIds.Contains(fee.JKID)
+                  && wt.CurrentAssignToUserID == userId
+                  && fee.IsCurrentStepActive == true
+                  && (fee.CurrentStatus ?? "pending").ToLower() == statusFilter
             select new { fee, person, fg, pr, wt };
 
-        if (request.IsActionFilter && request.StepId.HasValue)
-        {
-            query = query.Where(u =>
-                u.wt.CurrentStepId == request.StepId.Value &&
-                u.fee.IsCurrentStepActive == true &&
-                u.wt.CurrentAssignToUserID == userId);
-        }
+        if (request.StepId.HasValue)
+            query = query.Where(u => u.wt.CurrentStepId == request.StepId.Value);
 
         if (request.SchoolId.HasValue)
             query = query.Where(x => x.fee.SchoooID == request.SchoolId.Value);
@@ -163,9 +168,10 @@ public class FeeRemissionService : IFeeRemissionService
         stepFlagsDict.TryGetValue(stepId, out var stepFlags);
 
         _logger.LogInformation(
-            "FeeRemissionList userId={UserId} page={Page} total={Total} returned={Count}",
+            "FeeRemissionList userId={UserId} page={Page} status={Status} total={Total} returned={Count}",
             userId,
             page,
+            statusFilter,
             totalRecords,
             items.Count);
 
@@ -184,4 +190,5 @@ public class FeeRemissionService : IFeeRemissionService
             Items = items
         };
     }
+
 }
